@@ -1,0 +1,59 @@
+{
+  "name": "2077",
+  "author": "Jeremy Payne",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "2077",
+    "uuid": "4a899827-8373-4bc3-8491-81b43a9c7616",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "aplite",
+      "basalt",
+      "diorite",
+      "emery",
+      "flint"
+    ],
+    "watchapp": {
+      "watchface": true
+    },
+    "messageKeys": [
+      "TEMPERATURE",
+      "CONDITIONS"
+    ],
+    "capabilities": [
+      "health",
+      "location"
+    ],
+    "resources": {
+      "media": [
+        {
+          "type": "font",
+          "name": "FONT_RAJDHANI_58",
+          "file": "fonts/Rajdhani-Regular.ttf",
+          "characterRegex": "[0-9:]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_RAJDHANI_24",
+          "file": "fonts/Rajdhani-Regular.ttf",
+          "characterRegex": "[0-9]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_ORBITRON_12",
+          "file": "fonts/Orbitron-Regular.ttf",
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_HUD",
+          "file": "images/hud.png"
+        }
+      ]
+    }
+  }
+}
