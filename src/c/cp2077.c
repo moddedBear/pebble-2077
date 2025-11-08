@@ -141,6 +141,7 @@ static void load_day_layer(int x, int y) {
   text_layer_set_text_alignment(s_day_layer, GTextAlignmentLeft);
 }
 
+// TODO: refactor these
 static void load_os_layer(int x, int y) {
   s_os_layer = text_layer_create(
     GRect(x, y, 136, TEXT_HEIGHT)
@@ -148,7 +149,6 @@ static void load_os_layer(int x, int y) {
   text_layer_set_background_color(s_os_layer, GColorClear);
   text_layer_set_text_color(s_os_layer, color_fg);
   text_layer_set_font(s_os_layer, s_text_font);
-  text_layer_set_text_alignment(s_os_layer, GTextAlignmentLeft);
 }
 
 static void load_bt_layer(int x, int y) {
@@ -210,15 +210,19 @@ static void main_window_load(Window *window) {
 
   int hud_y = bounds.size.h - 44;
   int time_y = hud_y - 60;
-  int os_y = time_y + 2;
-  int step_y = os_y - TEXT_HEIGHT;
+  // int os_y = time_y + 2;
+  int os_y = 2;
+  int bt_y = os_y + TEXT_HEIGHT;
+  // int step_y = os_y - TEXT_HEIGHT;
+  int step_y = time_y + 2;
   int condition_y = step_y - TEXT_HEIGHT;  // TODO: adjust position if steps are hidden
   int temperature_y = condition_y - TEXT_HEIGHT;
 
   load_hud(0, hud_y);
   load_time_layer(MARGIN_SIZE, time_y);
   load_os_layer(MARGIN_SIZE, os_y);
-  load_bt_layer(MARGIN_SIZE, MARGIN_SIZE);
+  // load_bt_layer(MARGIN_SIZE, MARGIN_SIZE);
+  load_bt_layer(MARGIN_SIZE, bt_y);
   load_step_layer(MARGIN_SIZE, step_y);
   load_condition_layer(MARGIN_SIZE, condition_y);
   load_temperature_layer(MARGIN_SIZE, temperature_y);
@@ -255,6 +259,14 @@ static void main_window_unload(Window *window) {
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time();
+
+  // request new weather data
+  if (tick_time->tm_min % 30 == 0) {
+    DictionaryIterator *it;
+    app_message_outbox_begin(&it);
+    dict_write_uint8(it, 0, 0);
+    app_message_outbox_send();
+  }
 }
 
 static void battery_callback(BatteryChargeState state) {
