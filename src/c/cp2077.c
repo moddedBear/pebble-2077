@@ -21,6 +21,8 @@ static TextLayer *s_condition_layer;
 
 static BitmapLayer *s_hud_layer;
 static GBitmap *s_hud_bitmap;
+static BitmapLayer *s_charge_layer;
+static GBitmap *s_charge_bitmap;
 
 static GColor color_fg;
 static GColor color_bg;
@@ -63,16 +65,18 @@ static void update_steps() {
   time_t end = time(NULL);
 
   HealthServiceAccessibilityMask mask = health_service_metric_accessible(metric, start, end);
+  int step_count;
 
   if (mask & HealthServiceAccessibilityMaskAvailable) {
-    static char s_step_buffer[16];
-    snprintf(s_step_buffer, sizeof(s_step_buffer), "STEPS: %d", (int)health_service_sum_today(metric));
-    text_layer_set_text(s_step_layer, s_step_buffer);
-    layer_set_hidden(text_layer_get_layer(s_step_layer), false);
+    step_count = (int)health_service_sum_today(metric);
   }
   else {
-    layer_set_hidden(text_layer_get_layer(s_step_layer), true);
+    step_count = 0;
   }
+  static char s_step_buffer[16];
+  snprintf(s_step_buffer, sizeof(s_step_buffer), "STEPS: %d", step_count);
+  text_layer_set_text(s_step_layer, s_step_buffer);
+  layer_set_hidden(text_layer_get_layer(s_step_layer), false);
   #endif
 }
 
@@ -108,7 +112,16 @@ static void load_hud_layer(int x, int y) {
   bitmap_layer_set_bitmap(s_hud_layer, s_hud_bitmap);
   bitmap_layer_set_alignment(s_hud_layer, GAlignCenter);
   bitmap_layer_set_compositing_mode(s_hud_layer, GCompOpSet);
+}
 
+static void load_charge_layer(int x, int y) {
+  s_charge_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_CHARGE);
+  s_charge_layer = bitmap_layer_create(
+    GRect(x+43, y+13, 5, 8)
+  );
+  bitmap_layer_set_bitmap(s_charge_layer, s_charge_bitmap);
+  bitmap_layer_set_alignment(s_charge_layer, GAlignTopLeft);
+  bitmap_layer_set_compositing_mode(s_charge_layer, GCompOpSet);
 }
 
 static void load_time_layer(int x, int y) {
@@ -191,6 +204,7 @@ static void load_temperature_layer(int x, int y) {
 static void load_hud(int x, int y) {
   load_battery_layer(x, y);
   load_hud_layer(x, y);
+  load_charge_layer(x, y);
   load_date_layer(x, y);
   load_day_layer(x, y);
 }
@@ -210,10 +224,8 @@ static void main_window_load(Window *window) {
 
   int hud_y = bounds.size.h - 44;
   int time_y = hud_y - 60;
-  // int os_y = time_y + 2;
   int os_y = 2;
-  int bt_y = os_y + TEXT_HEIGHT;
-  // int step_y = os_y - TEXT_HEIGHT;
+  int bt_y = os_y;
   int step_y = time_y + 2;
   int condition_y = step_y - TEXT_HEIGHT;  // TODO: adjust position if steps are hidden
   int temperature_y = condition_y - TEXT_HEIGHT;
@@ -221,7 +233,6 @@ static void main_window_load(Window *window) {
   load_hud(0, hud_y);
   load_time_layer(MARGIN_SIZE, time_y);
   load_os_layer(MARGIN_SIZE, os_y);
-  // load_bt_layer(MARGIN_SIZE, MARGIN_SIZE);
   load_bt_layer(MARGIN_SIZE, bt_y);
   load_step_layer(MARGIN_SIZE, step_y);
   load_condition_layer(MARGIN_SIZE, condition_y);
@@ -230,6 +241,7 @@ static void main_window_load(Window *window) {
   // add children
   layer_add_child(window_layer, s_battery_layer);
   layer_add_child(window_layer, bitmap_layer_get_layer(s_hud_layer));
+  layer_add_child(window_layer, bitmap_layer_get_layer(s_charge_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_date_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_day_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_os_layer));
@@ -251,6 +263,8 @@ static void main_window_unload(Window *window) {
   text_layer_destroy(s_condition_layer);
   gbitmap_destroy(s_hud_bitmap);
   bitmap_layer_destroy(s_hud_layer);
+  gbitmap_destroy(s_charge_bitmap);
+  bitmap_layer_destroy(s_charge_layer);
   fonts_unload_custom_font(s_time_font);
   fonts_unload_custom_font(s_date_font);
   fonts_unload_custom_font(s_text_font);
@@ -272,11 +286,13 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 static void battery_callback(BatteryChargeState state) {
   s_battery_level = state.charge_percent;
   layer_mark_dirty(s_battery_layer);
-  // TODO: get charging state
+  layer_set_hidden(bitmap_layer_get_layer(s_charge_layer), !state.is_plugged);
 }
 
 static void bt_callback(bool connected) {
+  // Replace OS layer with BT layer when disconnected
   layer_set_hidden(text_layer_get_layer(s_bt_layer), connected);
+  layer_set_hidden(text_layer_get_layer(s_os_layer), !connected);
 
   if (!connected) {
     vibes_double_pulse();

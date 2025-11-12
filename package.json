@@ -52,6 +52,11 @@
           "type": "bitmap",
           "name": "IMAGE_HUD",
           "file": "images/hud.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_CHARGE",
+          "file": "images/charge.png"
         }
       ]
     }
