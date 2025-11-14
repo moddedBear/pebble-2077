@@ -15,7 +15,7 @@ static GFont s_text_font;
 static TextLayer *s_time_layer;
 static TextLayer *s_date_layer;
 static TextLayer *s_day_layer;
-static TextLayer *s_os_layer;
+static TextLayer *s_custom_layer;
 static TextLayer *s_bt_layer;
 static TextLayer *s_step_layer;
 static TextLayer *s_temperature_layer;
@@ -69,7 +69,7 @@ static void update_time() {
   text_layer_set_text(s_time_layer, s_time_buffer);
   text_layer_set_text(s_date_layer, s_date_buffer);
   text_layer_set_text(s_day_layer, s_day_buffer);
-  text_layer_set_text(s_os_layer, s_os_buffer);
+  text_layer_set_text(s_custom_layer, s_os_buffer);
 }
 
 static void update_steps() {
@@ -99,7 +99,7 @@ static void update_steps() {
   #endif
 }
 
-static void update_weather() {
+static void update_weather_layers() {
   if (settings.show_weather && settings.temperature && settings.temperature) {
     static char temperature_buffer[8];
     static char conditions_buffer[32];
@@ -220,52 +220,14 @@ static void load_day_layer(int x, int y) {
   text_layer_set_text_alignment(s_day_layer, GTextAlignmentLeft);
 }
 
-// TODO: refactor these
-static void load_os_layer(int x, int y) {
-  s_os_layer = text_layer_create(
-    GRect(x, y, 136, TEXT_HEIGHT)
+// Used for small text layers like weather and steps
+static void load_info_layer(TextLayer **layer, int y) {
+  *layer = text_layer_create(
+    GRect(MARGIN_SIZE, y, 136, TEXT_HEIGHT)
   );
-  text_layer_set_background_color(s_os_layer, GColorClear);
-  text_layer_set_text_color(s_os_layer, color_fg);
-  text_layer_set_font(s_os_layer, s_text_font);
-}
-
-static void load_bt_layer(int x, int y) {
-  s_bt_layer = text_layer_create(
-    GRect(x, y, 136, TEXT_HEIGHT)
-  );
-  text_layer_set_background_color(s_bt_layer, GColorClear);
-  text_layer_set_text_color(s_bt_layer, color_fg);
-  text_layer_set_font(s_bt_layer, s_text_font);
-  text_layer_set_text(s_bt_layer, "NO_CONNECTION");
-}
-
-static void load_step_layer(int x, int y) {
-  s_step_layer = text_layer_create(
-    GRect(x, y, 136, TEXT_HEIGHT)
-  );
-  text_layer_set_background_color(s_step_layer, GColorClear);
-  text_layer_set_text_color(s_step_layer, color_fg);
-  text_layer_set_font(s_step_layer, s_text_font);
-  layer_set_hidden(text_layer_get_layer(s_step_layer), true);
-}
-
-static void load_condition_layer(int x, int y) {
-  s_condition_layer = text_layer_create(
-    GRect(x, y, 136, TEXT_HEIGHT)
-  );
-  text_layer_set_background_color(s_condition_layer, GColorClear);
-  text_layer_set_text_color(s_condition_layer, color_fg);
-  text_layer_set_font(s_condition_layer, s_text_font);
-}
-
-static void load_temperature_layer(int x, int y) {
-  s_temperature_layer = text_layer_create(
-    GRect(x, y, 136, TEXT_HEIGHT)
-  );
-  text_layer_set_background_color(s_temperature_layer, GColorClear);
-  text_layer_set_text_color(s_temperature_layer, color_fg);
-  text_layer_set_font(s_temperature_layer, s_text_font);
+  text_layer_set_background_color(*layer, GColorClear);
+  text_layer_set_text_color(*layer, color_fg);
+  text_layer_set_font(*layer, s_text_font);
 }
 
 static void load_hud(int x, int y) {
@@ -291,19 +253,30 @@ static void main_window_load(Window *window) {
 
   int hud_y = bounds.size.h - 44;
   int time_y = hud_y - 60;
-  int os_y = 2;
-  int bt_y = os_y;
+  int custom_y = 2;
+  int bt_y = custom_y;
   int step_y = time_y + 2;
   int condition_y = step_y - TEXT_HEIGHT;
   int temperature_y = condition_y - TEXT_HEIGHT;
 
   load_hud(0, hud_y);
   load_time_layer(MARGIN_SIZE, time_y);
-  load_os_layer(MARGIN_SIZE, os_y);
-  load_bt_layer(MARGIN_SIZE, bt_y);
-  load_step_layer(MARGIN_SIZE, step_y);
-  load_condition_layer(MARGIN_SIZE, condition_y);
-  load_temperature_layer(MARGIN_SIZE, temperature_y);
+
+  // custom text
+  load_info_layer(&s_custom_layer, custom_y);
+
+  // BT
+  load_info_layer(&s_bt_layer, bt_y);
+  text_layer_set_text(s_bt_layer, "NO_CONNECTION");
+
+  // steps
+  load_info_layer(&s_step_layer, step_y);
+  // hide step layer initially so it doesn't show on unsupported devices
+  layer_set_hidden(text_layer_get_layer(s_step_layer), true);
+
+  // weather
+  load_info_layer(&s_condition_layer, condition_y);
+  load_info_layer(&s_temperature_layer, temperature_y);
 
   // add children
   layer_add_child(window_layer, s_battery_layer);
@@ -311,7 +284,7 @@ static void main_window_load(Window *window) {
   layer_add_child(window_layer, bitmap_layer_get_layer(s_charge_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_date_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_day_layer));
-  layer_add_child(window_layer, text_layer_get_layer(s_os_layer));
+  layer_add_child(window_layer, text_layer_get_layer(s_custom_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_bt_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_step_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_condition_layer));
@@ -323,7 +296,7 @@ static void main_window_unload(Window *window) {
   text_layer_destroy(s_time_layer);
   text_layer_destroy(s_date_layer);
   text_layer_destroy(s_day_layer);
-  text_layer_destroy(s_os_layer);
+  text_layer_destroy(s_custom_layer);
   text_layer_destroy(s_bt_layer);
   text_layer_destroy(s_step_layer);
   text_layer_destroy(s_temperature_layer);
@@ -363,7 +336,7 @@ static void battery_callback(BatteryChargeState state) {
 static void bt_callback(bool connected) {
   // Replace OS layer with BT layer when disconnected
   layer_set_hidden(text_layer_get_layer(s_bt_layer), connected);
-  layer_set_hidden(text_layer_get_layer(s_os_layer), !connected);
+  layer_set_hidden(text_layer_get_layer(s_custom_layer), !connected);
 
   if (!connected) {
     vibes_short_pulse();
@@ -409,7 +382,7 @@ static void save_settings() {
   persist_write_data(SETTINGS_KEY, &settings, sizeof(settings));
   update_time();
   update_steps();
-  update_weather();
+  update_weather_layers();
   update_health_subscription();
 }
 
@@ -454,18 +427,6 @@ static void inbox_received_callback(DictionaryIterator *it, void *ctx) {
   save_settings();
 }
 
-static void inbox_dropped_callback(AppMessageResult reason, void *ctx) {
-
-}
-
-static void outbox_sent_callback(DictionaryIterator *it, void *ctx) {
-
-}
-
-static void outbox_failed_callback(DictionaryIterator *it, AppMessageResult reason, void *ctx) {
-
-}
-
 static void init() {
   load_settings();
 
@@ -480,13 +441,10 @@ static void init() {
 
   // register app message inbox and outbox
   app_message_register_inbox_received(inbox_received_callback);
-  app_message_register_inbox_dropped(inbox_dropped_callback);
-  app_message_register_outbox_sent(outbox_sent_callback);
-  app_message_register_outbox_failed(outbox_failed_callback);
 
   // open app message
-  const int inbox_size = app_message_inbox_size_maximum();
-  const int outbox_size = 128;
+  const int inbox_size = 512;
+  const int outbox_size = 16;
   app_message_open(inbox_size, outbox_size);
 
   s_main_window = window_create();
@@ -502,7 +460,7 @@ static void init() {
 
   update_time();
   update_steps();
-  update_weather();
+  update_weather_layers();
   battery_callback(battery_state_service_peek());
   bt_callback(connection_service_peek_pebble_app_connection());
 }
