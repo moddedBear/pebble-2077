@@ -443,7 +443,7 @@ static void init() {
   app_message_register_inbox_received(inbox_received_callback);
 
   // open app message
-  const int inbox_size = 512;
+  const int inbox_size = 256;
   const int outbox_size = 16;
   app_message_open(inbox_size, outbox_size);
 
