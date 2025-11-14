@@ -1,6 +1,8 @@
 #include <pebble.h>
 #include <ctype.h>
 
+#define SETTINGS_KEY 1
+
 const int MARGIN_SIZE = 4;
 const int TEXT_HEIGHT = 14;
 
@@ -30,6 +32,14 @@ static GColor color_bg;
 static int s_battery_level;
 static Layer *s_battery_layer;
 
+typedef struct ClaySettings {
+  bool show_steps, show_weather, weather_use_metric, hour_vibe, disconnect_alert;
+  int temperature;
+  char custom_text[32], condition[32];
+} ClaySettings;
+
+static ClaySettings settings;
+
 static void update_time() {
   time_t temp = time(NULL);
   struct tm *tick_time = localtime(&temp);
@@ -48,9 +58,8 @@ static void update_time() {
     s++;
   }
 
-  static char s_os_buffer[16];
-  strftime(s_os_buffer, sizeof(s_os_buffer), "PBBL_%m%U%j", tick_time);
-  // strftime(s_os_buffer, sizeof(s_os_buffer), "PBBL_9999999", tick_time);
+  static char s_os_buffer[32];
+  strftime(s_os_buffer, sizeof(s_os_buffer), settings.custom_text, tick_time);
 
   text_layer_set_text(s_time_layer, s_time_buffer);
   text_layer_set_text(s_date_layer, s_date_buffer);
@@ -60,24 +69,76 @@ static void update_time() {
 
 static void update_steps() {
   #if defined(PBL_HEALTH)
-  HealthMetric metric = HealthMetricStepCount;
-  time_t start = time_start_of_today();
-  time_t end = time(NULL);
+  if (settings.show_steps) {
+    HealthMetric metric = HealthMetricStepCount;
+    time_t start = time_start_of_today();
+    time_t end = time(NULL);
 
-  HealthServiceAccessibilityMask mask = health_service_metric_accessible(metric, start, end);
-  int step_count;
+    HealthServiceAccessibilityMask mask = health_service_metric_accessible(metric, start, end);
+    int step_count;
 
-  if (mask & HealthServiceAccessibilityMaskAvailable) {
-    step_count = (int)health_service_sum_today(metric);
+    if (mask & HealthServiceAccessibilityMaskAvailable) {
+      step_count = (int)health_service_sum_today(metric);
+    }
+    else {
+      step_count = 0;
+    }
+    static char s_step_buffer[16];
+    snprintf(s_step_buffer, sizeof(s_step_buffer), "STEPS: %d", step_count);
+    text_layer_set_text(s_step_layer, s_step_buffer);
+    layer_set_hidden(text_layer_get_layer(s_step_layer), false);
   }
   else {
-    step_count = 0;
+    layer_set_hidden(text_layer_get_layer(s_step_layer), true);
   }
-  static char s_step_buffer[16];
-  snprintf(s_step_buffer, sizeof(s_step_buffer), "STEPS: %d", step_count);
-  text_layer_set_text(s_step_layer, s_step_buffer);
-  layer_set_hidden(text_layer_get_layer(s_step_layer), false);
   #endif
+}
+
+static void update_weather() {
+  if (settings.show_weather && settings.temperature && settings.temperature) {
+    static char temperature_buffer[8];
+    static char conditions_buffer[32];
+
+    if (settings.weather_use_metric) {
+      snprintf(temperature_buffer, sizeof(temperature_buffer), "%dC", settings.temperature);
+    }
+    else {
+      int temp_f = settings.temperature * 1.8 + 32;
+      snprintf(temperature_buffer, sizeof(temperature_buffer), "%dF", temp_f);
+    }
+    snprintf(conditions_buffer, sizeof(conditions_buffer), "%s", settings.condition);
+
+    text_layer_set_text(s_condition_layer, conditions_buffer);
+    text_layer_set_text(s_temperature_layer, temperature_buffer);
+
+    // update position based on step visibility/availability
+    GRect step_frame = layer_get_frame(text_layer_get_layer(s_step_layer));
+    int x = step_frame.origin.x;
+    if (!layer_get_hidden(text_layer_get_layer(s_step_layer))) {
+      int condition_y = step_frame.origin.y - TEXT_HEIGHT;
+      int temperature_y = condition_y - TEXT_HEIGHT;
+      layer_set_frame(text_layer_get_layer(s_condition_layer),
+        GRect(x, condition_y, 136, TEXT_HEIGHT)
+      );
+      layer_set_frame(text_layer_get_layer(s_temperature_layer),
+        GRect(x, temperature_y, 136, TEXT_HEIGHT)
+      );
+    }
+    else {
+      int temperature_y = step_frame.origin.y - TEXT_HEIGHT;
+      layer_set_frame(text_layer_get_layer(s_condition_layer), step_frame);
+      layer_set_frame(text_layer_get_layer(s_temperature_layer),
+        GRect(x, temperature_y, 136, TEXT_HEIGHT)
+      );
+    }
+
+    layer_set_hidden(text_layer_get_layer(s_condition_layer), false);
+    layer_set_hidden(text_layer_get_layer(s_temperature_layer), false);
+  }
+  else {
+    layer_set_hidden(text_layer_get_layer(s_condition_layer), true);
+    layer_set_hidden(text_layer_get_layer(s_temperature_layer), true);
+  }
 }
 
 static void battery_update_proc(Layer *layer, GContext *ctx) {
@@ -181,6 +242,7 @@ static void load_step_layer(int x, int y) {
   text_layer_set_background_color(s_step_layer, GColorClear);
   text_layer_set_text_color(s_step_layer, color_fg);
   text_layer_set_font(s_step_layer, s_text_font);
+  layer_set_hidden(text_layer_get_layer(s_step_layer), true);
 }
 
 static void load_condition_layer(int x, int y) {
@@ -227,7 +289,7 @@ static void main_window_load(Window *window) {
   int os_y = 2;
   int bt_y = os_y;
   int step_y = time_y + 2;
-  int condition_y = step_y - TEXT_HEIGHT;  // TODO: adjust position if steps are hidden
+  int condition_y = step_y - TEXT_HEIGHT;
   int temperature_y = condition_y - TEXT_HEIGHT;
 
   load_hud(0, hud_y);
@@ -275,11 +337,15 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time();
 
   // request new weather data
-  if (tick_time->tm_min % 30 == 0) {
+  if (tick_time->tm_min % 30 == 0 && settings.show_weather) {
     DictionaryIterator *it;
     app_message_outbox_begin(&it);
     dict_write_uint8(it, 0, 0);
     app_message_outbox_send();
+  }
+
+  if (tick_time->tm_min == 0 && settings.hour_vibe) {
+    vibes_short_pulse();
   }
 }
 
@@ -299,28 +365,88 @@ static void bt_callback(bool connected) {
   }
 }
 
+#if defined(PBL_HEALTH)
 static void health_handler(HealthEventType event, void *context) {
-  #if defined(PBL_HEALTH)
   if (event == HealthEventSignificantUpdate || event == HealthEventMovementUpdate) {
     update_steps();
+  }
+}
+#endif
+
+static void update_health_subscription() {
+  #if defined(PBL_HEALTH)
+  if (settings.show_steps) {
+    health_service_events_subscribe(health_handler, NULL);
+  }
+  else {
+    health_service_events_unsubscribe();
   }
   #endif
 }
 
+static void default_settings() {
+  settings.show_steps = true;
+  settings.show_weather = true;
+  settings.weather_use_metric = true;
+  settings.hour_vibe = false;
+  settings.disconnect_alert = true;
+  settings.temperature = (int)NULL;
+  strncpy(settings.custom_text, "PBL_%m%U%j", sizeof(settings.custom_text));
+  strncpy(settings.condition, "", sizeof(settings.condition));
+}
+
+static void load_settings() {
+  default_settings();
+  persist_read_data(SETTINGS_KEY, &settings, sizeof(settings));
+}
+
+static void save_settings() {
+  persist_write_data(SETTINGS_KEY, &settings, sizeof(settings));
+  update_time();
+  update_steps();
+  update_weather();
+  update_health_subscription();
+}
+
 static void inbox_received_callback(DictionaryIterator *it, void *ctx) {
-  static char temperature_buffer[8];
-  static char conditions_buffer[32];
-
-  Tuple *temperature_tuple = dict_find(it, MESSAGE_KEY_TEMPERATURE);
-  Tuple *conditions_tuple = dict_find(it, MESSAGE_KEY_CONDITIONS);
-
-  if (temperature_tuple && conditions_tuple) {
-    snprintf(temperature_buffer, sizeof(temperature_buffer), "%dF", (int)temperature_tuple->value->int32);
-    snprintf(conditions_buffer, sizeof(conditions_buffer), "%s", conditions_tuple->value->cstring);
-
-    text_layer_set_text(s_condition_layer, conditions_buffer);
-    text_layer_set_text(s_temperature_layer, temperature_buffer);
+  Tuple *temperature_t = dict_find(it, MESSAGE_KEY_TEMPERATURE);
+  Tuple *conditions_t = dict_find(it, MESSAGE_KEY_CONDITIONS);
+  if (temperature_t && conditions_t) {
+    settings.temperature = temperature_t->value->int32;
+    strncpy(settings.condition, conditions_t->value->cstring, sizeof(settings.condition));
   }
+  
+  Tuple *show_steps_t = dict_find(it, MESSAGE_KEY_PREF_SHOW_STEPS);
+  if (show_steps_t) {
+    settings.show_steps = show_steps_t->value->int32 == 1;
+  }
+
+  Tuple *show_weather_t = dict_find(it, MESSAGE_KEY_PREF_SHOW_WEATHER);
+  if (show_weather_t) {
+    settings.show_weather = show_weather_t->value->int32 == 1;
+  }
+
+  Tuple *weather_use_metric_t = dict_find(it, MESSAGE_KEY_PREF_WEATHER_METRIC);
+  if (weather_use_metric_t) {
+    settings.weather_use_metric = weather_use_metric_t->value->int32 == 1;
+  }
+
+  Tuple *hour_vibe_t = dict_find(it, MESSAGE_KEY_PREF_HOUR_VIBE);
+  if (hour_vibe_t) {
+    settings.hour_vibe = hour_vibe_t->value->int32 == 1;
+  }
+
+  Tuple *disconnect_alert_t = dict_find(it, MESSAGE_KEY_PREF_DISCONNECT_ALERT);
+  if (disconnect_alert_t) {
+    settings.disconnect_alert = disconnect_alert_t->value->int32 == 1;
+  }
+
+  Tuple *custom_text_t = dict_find(it, MESSAGE_KEY_PREF_CUSTOM_TEXT);
+  if (custom_text_t) {
+    strncpy(settings.custom_text, custom_text_t->value->cstring, sizeof(settings.custom_text));
+  }
+
+  save_settings();
 }
 
 static void inbox_dropped_callback(AppMessageResult reason, void *ctx) {
@@ -336,6 +462,8 @@ static void outbox_failed_callback(DictionaryIterator *it, AppMessageResult reas
 }
 
 static void init() {
+  load_settings();
+
   // register for time updates
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
   // register for battery updates
@@ -352,14 +480,9 @@ static void init() {
   app_message_register_outbox_failed(outbox_failed_callback);
 
   // open app message
-  const int inbox_size = 128;
+  const int inbox_size = app_message_inbox_size_maximum();
   const int outbox_size = 128;
   app_message_open(inbox_size, outbox_size);
-  
-  // register for health updates
-  #if defined(PBL_HEALTH)
-  health_service_events_subscribe(health_handler, NULL);
-  #endif
 
   s_main_window = window_create();
 
@@ -374,6 +497,7 @@ static void init() {
 
   update_time();
   update_steps();
+  update_weather();
   battery_callback(battery_state_service_peek());
   bt_callback(connection_service_peek_pebble_app_connection());
 }

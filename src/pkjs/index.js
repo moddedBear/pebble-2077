@@ -1,3 +1,7 @@
+const Clay = require('pebble-clay')
+const clayConfig = require('./config')
+const clay = new Clay(clayConfig)
+
 function getWeatherDescription(code) {
   const map = {
     0: "CLEAR",
@@ -14,8 +18,8 @@ function getWeatherDescription(code) {
     61: "RAIN-",
     63: "RAIN",
     65: "RAIN+",
-    66: "F_RAIN-",
-    67: "F_RAIN+",
+    66: "FRZ_RAIN-",
+    67: "FRZ_RAIN+",
     71: "SNOW-",
     73: "SNOW",
     75: "SNOW+",
@@ -46,7 +50,7 @@ const xhrRequest = function (url, type, callback) {
 
 function locationSuccess(pos) {
     console.log('Got location')
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current=temperature_2m,weather_code&temperature_unit=fahrenheit`
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current=temperature_2m,weather_code`
 
     xhrRequest(url, 'GET',
         (res) => {

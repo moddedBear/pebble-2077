@@ -2,9 +2,13 @@
   "name": "2077",
   "author": "Jeremy Payne",
   "version": "1.0.0",
-  "keywords": ["pebble-app"],
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
-  "dependencies": {},
+  "dependencies": {
+    "pebble-clay": "^1.0.4"
+  },
   "pebble": {
     "displayName": "2077",
     "uuid": "4a899827-8373-4bc3-8491-81b43a9c7616",
@@ -14,17 +18,23 @@
       "aplite",
       "basalt",
       "diorite",
-      "emery",
-      "flint"
+      "emery"
     ],
     "watchapp": {
       "watchface": true
     },
     "messageKeys": [
       "TEMPERATURE",
-      "CONDITIONS"
+      "CONDITIONS",
+      "PREF_SHOW_STEPS",
+      "PREF_SHOW_WEATHER",
+      "PREF_WEATHER_METRIC",
+      "PREF_CUSTOM_TEXT",
+      "PREF_HOUR_VIBE",
+      "PREF_DISCONNECT_ALERT"
     ],
     "capabilities": [
+      "configurable",
       "health",
       "location"
     ],
