@@ -1,6 +1,18 @@
 const Clay = require('pebble-clay')
 const clayConfig = require('./config')
-const clay = new Clay(clayConfig)
+
+function customClay() {
+    this.on(this.EVENTS.AFTER_BUILD, function() {
+        const topTextSelect = this.getItemById('top-text-select')
+        const topTextInput = this.getItemById('top-text-input')
+
+        topTextSelect.on('change', function() {
+            topTextInput.set(topTextSelect.get())
+        })
+    }.bind(this))
+}
+
+const clay = new Clay(clayConfig, customClay)
 
 function getWeatherDescription(code) {
   const map = {

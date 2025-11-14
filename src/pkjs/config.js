@@ -1,4 +1,4 @@
-module.exports = [
+const config = [
     {
         "type": "heading",
         "defaultValue": "2077"
@@ -76,15 +76,27 @@ module.exports = [
                 "type": "select",
                 "id": "top-text-select",
                 "label": "Presets",
-                "defaultValue": "PBL_%m%U%j",
+                "defaultValue": "",
                 "options": [
                     {
                         "value": "",
-                        "label": "Empty"
+                        "label": "None"
                     },
                     {
                         "value": "PBL_%m%U%j",
-                        "label": "Default"
+                        "label": "Default: Month, week number, and day of year"
+                    },
+                    {
+                        "value": "%Y_%b",
+                        "label": "Year and short month"
+                    },
+                    {
+                        "value": "%B",
+                        "label": "Full month"
+                    },
+                    {
+                        "value": "%G_%V",
+                        "label": "ISO 8601 year and week number"
                     }
                 ]
             },
@@ -94,10 +106,13 @@ module.exports = [
                 "messageKey": "PREF_CUSTOM_TEXT",
                 "label": "Text",
                 "defaultValue": "PBL_%m%U%j",
+                "attributes": {
+                    "limit": 16
+                }
             },
             {
                 "type": "text",
-                "defaultValue": "Text can be formatted using the current time by following the <a href=\"https://man7.org/linux/man-pages/man3/strftime.3.html\">strftime(3) manpage</a>. Some common examples:<ul><li>%b - abbreviated month name</li><li>%B - full month name</li><li>%j - day of the year</li><li>%m - month</li><li>%u - day of the week as a number</li><li>%U - week number</li><li>%y - two digit year</li><li>%Y - full year</li></ul>"
+                "defaultValue": "Text can be formatted with the current time by following the <a href=\"https://man7.org/linux/man-pages/man3/strftime.3.html\">strftime(3) manpage</a>. Some common examples:<ul><li>%b - abbreviated month name</li><li>%B - full month name</li><li>%j - day of the year</li><li>%m - month</li><li>%u - day of the week as a number</li><li>%U - week number</li><li>%y - two digit year</li><li>%Y - full year</li></ul>"
             }
         ]
     },
@@ -105,13 +120,6 @@ module.exports = [
         "type": "submit",
         "defaultValue": "Save"
     }
-], () => {
-    this.on(this.EVENTS.AFTER_BUILD, () => {
-        const topTextSelect = this.getItemById('top-text-select')
-        const topTextInput = this.getItemById('top-text-input')
+]
 
-        topTextSelect.on('change', () => {
-            topTextInput.set(topTextSelect.get())
-        })
-    })
-}
+module.exports = config

@@ -40,6 +40,14 @@ typedef struct ClaySettings {
 
 static ClaySettings settings;
 
+static void str_to_upper(char *str) {
+  char *s = str;
+  while (*s) {
+    *s = toupper((unsigned char) *s);
+    s++;
+  }
+}
+
 static void update_time() {
   time_t temp = time(NULL);
   struct tm *tick_time = localtime(&temp);
@@ -52,14 +60,11 @@ static void update_time() {
 
   static char s_day_buffer[32];
   strftime(s_day_buffer, sizeof(s_day_buffer), "%A", tick_time);
-  char *s = s_day_buffer;
-  while (*s) {
-    *s = toupper((unsigned char) *s);
-    s++;
-  }
+  str_to_upper(s_day_buffer);
 
   static char s_os_buffer[32];
   strftime(s_os_buffer, sizeof(s_os_buffer), settings.custom_text, tick_time);
+  str_to_upper(s_os_buffer);
 
   text_layer_set_text(s_time_layer, s_time_buffer);
   text_layer_set_text(s_date_layer, s_date_buffer);
@@ -345,7 +350,7 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   }
 
   if (tick_time->tm_min == 0 && settings.hour_vibe) {
-    vibes_short_pulse();
+    vibes_double_pulse();
   }
 }
 
@@ -361,7 +366,7 @@ static void bt_callback(bool connected) {
   layer_set_hidden(text_layer_get_layer(s_os_layer), !connected);
 
   if (!connected) {
-    vibes_double_pulse();
+    vibes_short_pulse();
   }
 }
 
