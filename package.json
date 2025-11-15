@@ -2,6 +2,12 @@
   "name": "2077",
   "author": "Jeremy Payne",
   "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/moddedBear/pebble-2077.git"
+  },
+  "license": "MIT",
+  "description": "A futuristic Pebble watch face inspired by Cyberpunk 2077",
   "keywords": [
     "pebble-app"
   ],
